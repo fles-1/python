@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<head>
+<title>WebSocket</title>
+<meta charset="utf-8">
+<style>
+ html,body{font:normal 0.9em arial,helvetica;}
+ #log {width:440px; height:200px; border:1px solid #7F9DB9; overflow:auto;}
+ #msg {width:440px;}
+</style>
+<script>
+    var socket;
+    function init(){
+        var host = "ws://127.0.0.1:9000/";
+        try{
+            socket = new WebSocket(host);
+            socket.onopen    = function(msg){ 
+                console.log("socket session create sucess!"); 
+                log("socket session create sucess!");
+            };
+            socket.onmessage = function(msg){ 
+                console.log("message Sucess"); 
+                //socket.send("Hello"); 
+                //log(msg.data);
+                log(msg.data)
+            };
+            socket.onclose   = function(msg){ console.log("close Sucess"); log("Connection Lose!"); };
+            socket.onerror   = function(msg){ console.log("Error!"); };
+        }catch(ex){
+            log(ex);
+        }
+        $("msg").focus();
+}
+
+    function send(){
+        var txt,msg;
+        txt = $("msg");
+        msg = txt.value;
+        console.log("message is", msg)
+        if(!msg){ 
+            alert("Message can not be empty"); 
+            return;
+        }
+        txt.value="";
+        txt.focus();
+        try{ 
+            //log(msg);
+            socket.send(msg);
+        }catch(ex){
+            log(ex);
+        }
+}
+
+    window.onbeforeunload=function(){
+        try{ 
+            socket.send('quit'); 
+            socket.close();
+            socket=null;
+        }catch(ex){ 
+            log(ex);
+        }
+    };
+
+    function $(id){
+        return document.getElementById(id);
+    }
+    function log(msg){ 
+        $("log").innerHTML+="<br>"+msg;
+    }
+    function onkey(event){
+        if(event.keyCode==13){ 
+            send(); 
+        }
+    }
+</script>
+</head>
+<body onload="init()">
+    <h3>WebSocket</h3>
+    <br><br>
+    <div id="log"></div>
+    <input id="msg" type="textbox" onkeypress="onkey(event)"/>
+    <button onclick="send()">发送</button>
+</body>
+</html>
