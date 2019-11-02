@@ -41,7 +41,7 @@ class ConnectHandler(tornado.websocket.WebSocketHandler):
 
         except Exception as e:
             print(e)
-        raise gen.Return('no blocking')
+        #raise gen.Return('no blocking')
 
     @gen.coroutine
     def open(self, symbol, interval):
