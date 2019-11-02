@@ -20,7 +20,7 @@ def get_symbol():
         yield i['symbol']
 
 
-users = []  # 用来存放在线用户的容器
+users = []  # 用来存放在线用户的每个连接的ip
 
 
 class ConnectHandler(tornado.websocket.WebSocketHandler):
@@ -45,20 +45,13 @@ class ConnectHandler(tornado.websocket.WebSocketHandler):
 
     @gen.coroutine
     def open(self, symbol, interval):
-
-        result = yield self.doing(symbol, interval)
-        #self.write(result)
-        # users.append(self)  # 建立连接后添加用户到容器中
-        # print(users)
-        # len_users = len(users)+1
-        # server.start(len(users))
-        # for u in users:
-
+        users.append(self.request.remote_ip)
+        print("在线用户ip列表%s" % users)
+        yield self.doing(symbol, interval)
 
     def on_close(self):
         # '''websocket连接关闭后被调用'''
-        pass
-        #users.remove(self)  # 用户关闭连接后从容器中移除用户
+        print("用户%s离开" % self.request.remote_ip)
 
     def on_message(self, message):
         # '''接收到客户端消息时被调用,必须重写此方法'''
