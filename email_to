@@ -1,0 +1,34 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import smtplib
+from email.mime.text import MIMEText
+
+
+def Send_msg(x):
+    # 发送方邮箱
+    msg_from='1032501469@qq.com'
+    # 填入发送方邮箱的授权码
+    passwd='norsapphzxbobcea'
+    # 收件人邮箱
+    msg_to=['3148371524@qq.com', '1032501469@qq.com']
+    # 主题
+    subject="Nginx邮件告警"
+    # 正文
+    content= x
+    msg = MIMEText(content)
+    msg['Subject'] = subject
+    msg['From'] = msg_from
+    msg['To'] = ','.join(msg_to) # 这里必须要把多个邮箱按照逗号拼接为字符串
+    try:
+        # 邮件服务器及端口号
+        s = smtplib.SMTP_SSL("smtp.qq.com", 465)
+        # 登录SMTP服务器
+        s.login(msg_from, passwd)
+        # 发邮件 as_string()把MIMEText对象变成str
+        s.sendmail(msg_from, msg_to, msg.as_string())
+        print ("邮件发送成功")
+    except s.SMTPException:
+        print ("邮件发送失败")
+    finally:
+        s.quit()
+Send_msg("this is a send email test!")
