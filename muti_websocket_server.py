@@ -40,17 +40,18 @@ class serverWsKline(tornado.websocket.WebSocketHandler):
 
 
 def force_close():
-    ''' 单独开启一个线程，每隔5秒判断,request.request_time为对象连接持续的时间
-    使用asyncio.new_event_loop函数建立一个新的事件循环，并使用asyncio.set_event_loop设置全局的事件循环，
-    这时候就可以多次运行异步的事件循环了，不过最好保存默认的asyncio.get_event_loop并在事件循环结束的时候还原回去 '''
+    """单独开启一个线程，每隔30分钟用来关闭客户端,其中self.request.request_time()，记录的时间是请求开始处理到现在的时间
 
+    使用asyncio.new_event_loop函数建立一个新的事件循环，并使用asyncio.set_event_loop设置全局的事件循环，
+
+    这时候就可以多次运行异步的事件循环了，不过最好保存默认的asyncio.get_event_loop并在事件循环结束的时候还原回去
+    """
     asyncio.set_event_loop(asyncio.new_event_loop())
     while True:
-        time.sleep(5)
         for obj in clients:
+            # print(obj.request.request_time())
             if obj.request.request_time() > 60:
                 obj.close()
-
 
 class serverWsTrade(tornado.websocket.WebSocketHandler):
     # websocket的实时成交信息symbol=btc_usdt
