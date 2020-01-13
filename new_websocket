@@ -10,12 +10,13 @@ import threading
 
 clients = []  # 客户端列表对象
 
+ex_obj = {}  # 交易所列表对象
 
 dict_ws = {
     'Abby.Global': 'wss://ws.abby.global/kline-api/ws', 'BitSG': 'wss://ws.bitsg.com/kline-api/ws',
     'BDDEx': 'wss://ws.bddex.io/kline-api/ws', 'BiKi': 'wss://ws.biki.com/kline-api/ws',
     'BZEX': 'wss://ws.bzex.co/kline-api/ws', 'DXD': 'wss://ws.dxdcoin.com/kline-api/ws',
-    'IMOEX': 'wss://ws.imoex.top/kline-api/ws', 'WBFex': 'wss://ws.wbf.io/kline-api/ws',
+    'IMOEX': 'wss://ws.imoex.top/kline-api/ws',
     'MOMO': 'wss://ws.momoex.com/kline-api/ws', 'GOKO': 'wss://ws.goko.com/kline-api/ws',
     'BTBO': 'wss://ws.btbo.com/kline-api/ws', 'BBKX': 'wss://ws.bbkx.com/kline-api/ws',
     'HKEx.one': 'wss://ws.hkex.one/kline-api/ws', 'Biiit': 'wss://ws.biiit.com/kline-api/ws',
@@ -64,12 +65,10 @@ def muti_ticker_ex():
 def get_kline(url_ws, symbol, interval):
     # asyncio.set_event_loop(asyncio.new_event_loop())
     # 获取websocket的k线symbol=btcusdt,interval=1min
-    lock.acquire()
     ws = websocket.WebSocket()
-    lock.release()
     try:
         ws.connect(dict_ws[url_ws])
-
+        ex_obj[url_ws] = ws
         if symbol == "*":
             if interval == '*':
                 for inter in kline_list:
@@ -84,71 +83,78 @@ def get_kline(url_ws, symbol, interval):
                     '{"event":"sub","params":{"channel":"market_%s_kline_%s","cb_id":1001}}' % (d, interval))
     except Exception as e:
         print(e)
-    # threading.Thread(target=get_kline_data, args=(ws, url_ws)).start()
+    threading.Thread(target=get_kline_data, args=(ws, url_ws)).start()
 
 
 def get_kline_data(ws, url_ws):
-    while True:
-        result = ws.recv()
-        data = gzip.decompress(result).decode('utf8')
-        if 'ping' in json.loads(data):
-            ws.send(json.dumps({"pong": json.loads(data)["ping"]}))
-        else:
-            data = json.loads(data)
-            data_channel = data['channel']
-            sym = data_channel[7:][:data_channel[7:].find('_')]
-            interval_ = data_channel[(data_channel.rfind('_')+1):]
-            data['data'] = data.pop('tick')
-            data['data']['tmp'] = data['data']['amount']
-            data['data']['amount'] = data['data'].pop('vol')
-            data['data']['volume'] = data['data'].pop('tmp')
+    try:
+        while True:
+            result = ws.recv()
+            data = gzip.decompress(result).decode('utf8')
+            if 'ping' in json.loads(data):
+                ws.send(json.dumps({"pong": json.loads(data)["ping"]}))
+            else:
+                data = json.loads(data)
+                data_channel = data['channel']
+                sym = data_channel[7:][:data_channel[7:].find('_')]
+                interval_ = data_channel[(data_channel.rfind('_')+1):]
+                data['data'] = data.pop('tick')
+                data['data']['tmp'] = data['data']['amount']
+                data['data']['amount'] = data['data'].pop('vol')
+                data['data']['volume'] = data['data'].pop('tmp')
 
-            time_array = time.strptime(data['data']['ds'], "%Y-%m-%d %H:%M:%S")
-            del data['data']['id']
-            del data['data']['tradeId']
-            del data['data']['ds']
-            timestamp = int(time.mktime(time_array))
-            data['data']['timestamp'] = timestamp
-            data['data']['count'] = 0
-            data['data']['exchangeCode'] = url_ws
+                time_array = time.strptime(data['data']['ds'], "%Y-%m-%d %H:%M:%S")
+                del data['data']['id']
+                del data['data']['tradeId']
+                del data['data']['ds']
+                timestamp = int(time.mktime(time_array))
+                data['data']['timestamp'] = timestamp
+                data['data']['count'] = 0
+                data['data']['exchangeCode'] = url_ws
 
-            dic = {"data": data["data"]}
+                dic = {"data": data["data"]}
 
-            last_data = {"data": dic, "interval": interval_, "symbol": sym, "rate": 0, "timestamp": data['ts']}
-            for c in clients:
-                server.send_message(c, json.dumps(last_data))
-
+                last_data = {"data": dic, "interval": interval_, "symbol": sym, "rate": 0, "timestamp": data['ts']}
+                try:
+                    for c in clients:
+                        server.send_message(c, json.dumps(last_data))
+                except Exception as e:
+                    print(e)
+    except Exception as e:
+        print('%s closed' % url_ws)
             # yield json.dumps(last_data)
             # yield data
 
 
 def get_ticker_data(ws, url_ws):
-    while True:
-        result = ws.recv()
-        data = gzip.decompress(result).decode('utf8')
-        if 'ping' in json.loads(data):
-            ws.send(json.dumps({"pong": json.loads(data)["ping"]}))
-        else:
-            data = json.loads(data)
-            data_channel = data['channel']
-            sym = data_channel[7:][:data_channel[7:].find('_')]
-            data['data'] = data.pop('tick')
-            data['data']['volume'] = data['data'].pop('vol')
-            data['data']['exchangeCode'] = url_ws
-            dic = {"data": data["data"]}
+    try:
+        while True:
+            result = ws.recv()
+            data = gzip.decompress(result).decode('utf8')
+            if 'ping' in json.loads(data):
+                ws.send(json.dumps({"pong": json.loads(data)["ping"]}))
+            else:
+                data = json.loads(data)
+                data_channel = data['channel']
+                sym = data_channel[7:][:data_channel[7:].find('_')]
+                data['data'] = data.pop('tick')
+                data['data']['volume'] = data['data'].pop('vol')
+                data['data']['exchangeCode'] = url_ws
+                dic = {"data": data["data"]}
 
-            data = {"data": dic,  "symbol": sym, "rate": 0, "timestamp": data['ts']}
-            for c in clients:
-                server.send_message(c, json.dumps(data))
+                data = {"data": dic,  "symbol": sym, "rate": 0, "timestamp": data['ts']}
+                for c in clients:
+                    server.send_message(c, json.dumps(data))
+    except Exception as e:
+        print('%s closed' % url_ws)
             # yield json.dumps(data)
 
 
 def get_ticker(url_ws, symbol):
 
     # 获取websocket的前24小时交易对行情symbol=btcusdt
-    lock.acquire()
     ws = websocket.WebSocket()
-    lock.release()
+    ex_obj[url_ws] = ws
     try:
         ws.connect(dict_ws[url_ws])
         if symbol == "*":
@@ -171,6 +177,26 @@ t1.start()
 
 t2 = threading.Thread(target=muti_ticker_ex)
 t2.start()
+
+
+def is_alive():
+    print(len(ex_obj))
+    if len(ex_obj.keys()) >= 14:
+        for ws_url, ws in ex_obj.items():
+            if ws.getstatus() == 101:
+                print('%s is alive' % ws)
+            else:
+
+                print('%s is not alive' % ws)
+                # del ex_obj[ws_url]
+                get_kline(ws_url, '*', '*')
+                get_ticker(ws_url, '*')
+                print('call')
+    #         # wss.connect()
+    threading.Timer(3, is_alive).start()
+
+
+threading.Timer(3, is_alive).start()
 
 
 def get_trade(url_ws, symbol):
@@ -278,7 +304,7 @@ def message_received(client, server, message):
     server.send_message(client,'用户编号'+str(client['id'])+':'+message)
 
 
-PORT = 1109
+PORT = 8083
 server = WebsocketServer(PORT, host="0.0.0.0")
 server.set_fn_new_client(new_client)
 server.set_fn_client_left(client_left)
